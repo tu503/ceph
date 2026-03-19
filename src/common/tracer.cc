@@ -8,7 +8,8 @@
 #ifdef HAVE_JAEGER
 #include "opentelemetry/sdk/trace/batch_span_processor.h"
 #include "opentelemetry/sdk/trace/tracer_provider.h"
-#include "opentelemetry/exporters/jaeger/jaeger_exporter.h"
+#include "opentelemetry/exporters/otlp/otlp_http_exporter_factory.h"
+#include "opentelemetry/exporters/otlp/otlp_http_exporter_options.h"
 
 #define dout_subsys ceph_subsys_trace
 #undef dout_prefix
@@ -26,13 +27,20 @@ void Tracer::init(CephContext* _cct, opentelemetry::nostd::string_view service_n
   cct = _cct;
   if (!tracer) {
     ldout(cct, 3) << "tracer was not loaded, initializing tracing" << dendl;
-    opentelemetry::exporter::jaeger::JaegerExporterOptions exporter_options;
-    exporter_options.server_port = cct->_conf.get_val<int64_t>("jaeger_agent_port");
+    opentelemetry::exporter::otlp::OtlpHttpExporterOptions exporter_options;
+    exporter_options.url = cct->_conf.get_val<std::string>("otel_tracing_endpoint");
+    if (exporter_options.url.find("://") == std::string::npos) {
+      exporter_options.url = "http://" + exporter_options.url;
+    }
+    if (exporter_options.url.find("/v1/traces") == std::string::npos) {
+      exporter_options.url += "/v1/traces";
+    }
+    ldout(cct, 3) << "OTLP HTTP exporter endpoint: " << exporter_options.url << dendl;
+    auto otlp_exporter = opentelemetry::exporter::otlp::OtlpHttpExporterFactory::Create(exporter_options);
     const opentelemetry::sdk::trace::BatchSpanProcessorOptions processor_options;
-    const auto jaeger_resource = opentelemetry::sdk::resource::Resource::Create(std::move(opentelemetry::sdk::resource::ResourceAttributes{{"service.name", service_name}}));
-    auto jaeger_exporter = std::unique_ptr<opentelemetry::sdk::trace::SpanExporter>(new opentelemetry::exporter::jaeger::JaegerExporter(exporter_options));
-    auto processor = std::unique_ptr<opentelemetry::sdk::trace::SpanProcessor>(new opentelemetry::sdk::trace::BatchSpanProcessor(std::move(jaeger_exporter), processor_options));
-    const auto provider = opentelemetry::nostd::shared_ptr<opentelemetry::trace::TracerProvider>(new opentelemetry::sdk::trace::TracerProvider(std::move(processor), jaeger_resource));
+    const auto resource = opentelemetry::sdk::resource::Resource::Create(std::move(opentelemetry::sdk::resource::ResourceAttributes{{"service.name", service_name}}));
+    auto processor = std::unique_ptr<opentelemetry::sdk::trace::SpanProcessor>(new opentelemetry::sdk::trace::BatchSpanProcessor(std::move(otlp_exporter), processor_options));
+    const auto provider = opentelemetry::nostd::shared_ptr<opentelemetry::trace::TracerProvider>(new opentelemetry::sdk::trace::TracerProvider(std::move(processor), resource));
     opentelemetry::trace::Provider::SetTracerProvider(provider);
     tracer = provider->GetTracer(service_name, OPENTELEMETRY_SDK_VERSION);
   }

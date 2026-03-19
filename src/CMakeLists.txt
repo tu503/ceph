@@ -317,13 +317,23 @@ if (WITH_BLKIN)
   add_subdirectory(blkin/blkin-lib)
 endif(WITH_BLKIN)
 
+option(WITH_SYSTEM_OPENTELEMETRY "build against system opentelemetry" OFF)
 if(WITH_JAEGER)
-  find_package(thrift 0.13.0 REQUIRED)
-  include(BuildOpentelemetry)
-  build_opentelemetry()
   add_library(jaeger_base INTERFACE)
-  target_link_libraries(jaeger_base INTERFACE opentelemetry::libopentelemetry
-    thrift::libthrift)
+  if(WITH_SYSTEM_OPENTELEMETRY)
+    find_package(opentelemetry-cpp REQUIRED)
+    target_link_libraries(jaeger_base INTERFACE
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::resources
+      opentelemetry-cpp::otlp_http_exporter
+      opentelemetry-cpp::common)
+  else()
+    find_package(thrift 0.13.0 REQUIRED)
+    include(BuildOpentelemetry)
+    build_opentelemetry()
+    target_link_libraries(jaeger_base INTERFACE opentelemetry::libopentelemetry
+      thrift::libthrift)
+  endif()
 endif()
 
 set(mds_files)
