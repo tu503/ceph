@@ -9980,7 +9980,20 @@ void OSD::dequeue_op(
   op->mark_reached_pg();
   op->osd_trace.event("dequeue_op");
 
+  auto dequeue_span = tracing::osd::tracer.add_span("dequeue_op", op->osd_parent_span);
+  if (dequeue_span->IsRecording()) {
+    dequeue_span->SetAttribute("pg", pg->get_pgid().pgid.ps());
+    dequeue_span->SetAttribute("priority", (int64_t)m->get_priority());
+    dequeue_span->SetAttribute("cost", (int64_t)m->get_cost());
+    dequeue_span->SetAttribute("queue_lat_ms", (double)(latency * 1000.0));
+  }
+
   pg->do_request(op, handle);
+
+  if (dequeue_span->IsRecording()) {
+    utime_t op_lat = ceph_clock_now() - now;
+    dequeue_span->SetAttribute("execute_lat_ms", (double)(op_lat * 1000.0));
+  }
 
   // finish
   dout(10) << "dequeue_op " << *op->get_req() << " finish" << dendl;

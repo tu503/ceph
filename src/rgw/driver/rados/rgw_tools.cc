@@ -14,6 +14,7 @@
 #include "rgw_aio_throttle.h"
 #include "rgw_asio_thread.h"
 #include "rgw_compression.h"
+#include "rgw_tracer.h"
 
 #define dout_subsys ceph_subsys_rgw
 
@@ -233,6 +234,13 @@ int rgw_rados_operate(const DoutPrefixProvider *dpp, librados::IoCtx& ioctx, con
                       optional_yield y, int flags, const jspan_context* trace_info,
                       version_t* pver)
 {
+  auto rados_span = tracing::rgw::tracer.add_span("rados_read", trace_info ? *trace_info : jspan_context());
+  if (rados_span->IsRecording()) {
+    rados_span->SetAttribute("oid", oid);
+    rados_span->SetAttribute("pool", ioctx.get_pool_name());
+  }
+
+  int r;
   // given a yield_context, call async_operate() to yield the coroutine instead
   // of blocking
   if (y) {
@@ -247,12 +255,16 @@ int rgw_rados_operate(const DoutPrefixProvider *dpp, librados::IoCtx& ioctx, con
     if (pver) {
       *pver = ver;
     }
-    return -ec.value();
+    r = -ec.value();
+  } else {
+    maybe_warn_about_blocking(dpp);
+    r = ioctx.operate(oid, &op, nullptr, flags);
+    if (pver) {
+      *pver = ioctx.get_last_version();
+    }
   }
-  maybe_warn_about_blocking(dpp);
-  int r = ioctx.operate(oid, &op, nullptr, flags);
-  if (pver) {
-    *pver = ioctx.get_last_version();
+  if (rados_span->IsRecording()) {
+    rados_span->SetAttribute("retval", r);
   }
   return r;
 }
@@ -261,6 +273,13 @@ int rgw_rados_operate(const DoutPrefixProvider *dpp, librados::IoCtx& ioctx, con
                       librados::ObjectWriteOperation&& op, optional_yield y,
 		      int flags, const jspan_context* trace_info, version_t* pver)
 {
+  auto rados_span = tracing::rgw::tracer.add_span("rados_write", trace_info ? *trace_info : jspan_context());
+  if (rados_span->IsRecording()) {
+    rados_span->SetAttribute("oid", oid);
+    rados_span->SetAttribute("pool", ioctx.get_pool_name());
+  }
+
+  int r;
   if (y) {
     auto& yield = y.get_yield_context();
     auto ex = yield.get_executor();
@@ -270,12 +289,16 @@ int rgw_rados_operate(const DoutPrefixProvider *dpp, librados::IoCtx& ioctx, con
     if (pver) {
       *pver = ver;
     }
-    return -ec.value();
+    r = -ec.value();
+  } else {
+    maybe_warn_about_blocking(dpp);
+    r = ioctx.operate(oid, &op, flags, trace_info);
+    if (pver) {
+      *pver = ioctx.get_last_version();
+    }
   }
-  maybe_warn_about_blocking(dpp);
-  int r = ioctx.operate(oid, &op, flags, trace_info);
-  if (pver) {
-    *pver = ioctx.get_last_version();
+  if (rados_span->IsRecording()) {
+    rados_span->SetAttribute("retval", r);
   }
   return r;
 }

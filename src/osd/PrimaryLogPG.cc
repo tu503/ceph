@@ -1991,6 +1991,11 @@ void PrimaryLogPG::do_request(
 void PrimaryLogPG::do_op(OpRequestRef& op)
 {
   FUNCTRACE(cct);
+  auto do_op_span = tracing::osd::tracer.add_span("do_op", op->osd_parent_span);
+  if (do_op_span->IsRecording()) {
+    do_op_span->SetAttribute("pg", (int64_t)info.pgid.pgid.ps());
+  }
+
   // NOTE: take a non-const pointer here; we must be careful not to
   // change anything that will break other reads on m (operator<<).
   MOSDOp *m = static_cast<MOSDOp*>(op->get_nonconst_req());
@@ -4202,6 +4207,14 @@ void PrimaryLogPG::execute_ctx(OpContext *ctx)
   auto m = op->get_req<MOSDOp>();
   ObjectContextRef obc = ctx->obc;
   const hobject_t& soid = obc->obs.oi.soid;
+
+  auto exec_span = tracing::osd::tracer.add_span("execute_ctx", op->osd_parent_span);
+  if (exec_span->IsRecording()) {
+    exec_span->SetAttribute("object", soid.oid.name);
+    exec_span->SetAttribute("pg", (int64_t)info.pgid.pgid.ps());
+    exec_span->SetAttribute("may_write", op->may_write());
+    exec_span->SetAttribute("may_read", op->may_read());
+  }
 
   // this method must be idempotent since we may call it several times
   // before we finally apply the resulting transaction.
@@ -11496,6 +11509,12 @@ void PrimaryLogPG::issue_repop(RepGather *repop, OpContext *ctx)
   dout(7) << "issue_repop rep_tid " << repop->rep_tid
           << " o " << soid
           << dendl;
+
+  auto repop_span = tracing::osd::tracer.add_span("issue_repop", ctx->op ? ctx->op->osd_parent_span : jspan_ptr());
+  if (repop_span->IsRecording()) {
+    repop_span->SetAttribute("object", soid.oid.name);
+    repop_span->SetAttribute("rep_tid", (int64_t)repop->rep_tid);
+  }
 
 
   repop->v = ctx->at_version;

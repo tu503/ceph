@@ -2661,10 +2661,21 @@ void RGWGetObj::execute(optional_yield y)
 
   rgw::op_counters::inc(counters, l_rgw_op_get_obj_b, end-ofs);
 
-  op_ret = read_op->iterate(this, ofs_x, end_x, filter, s->yield);
+  {
+    auto data_span = tracing::rgw::tracer.add_span("get_obj_data", s->trace);
+    if (data_span->IsRecording()) {
+      data_span->SetAttribute("ofs", ofs_x);
+      data_span->SetAttribute("end", end_x);
+      data_span->SetAttribute("size", end_x - ofs_x + 1);
+    }
+    op_ret = read_op->iterate(this, ofs_x, end_x, filter, s->yield);
 
-  if (op_ret >= 0)
-    op_ret = filter->flush();
+    if (op_ret >= 0)
+      op_ret = filter->flush();
+    if (data_span->IsRecording()) {
+      data_span->SetAttribute("retval", op_ret);
+    }
+  }
 
   rgw::op_counters::tinc(counters, l_rgw_op_get_obj_lat, s->time_elapsed());
 
@@ -4603,6 +4614,7 @@ void RGWPutObj::execute(optional_yield y)
       filter = &*cksum_filter;
     }
   } /* !append */
+  auto data_span = tracing::rgw::tracer.add_span("put_obj_data", s->trace);
   tracepoint(rgw_op, before_data_transfer, s->req_id.c_str());
   do {
     bufferlist data;
@@ -4646,6 +4658,10 @@ void RGWPutObj::execute(optional_yield y)
   op_ret = filter->process({}, ofs);
   if (op_ret < 0) {
     return;
+  }
+  if (data_span->IsRecording()) {
+    data_span->SetAttribute("size", (int64_t)ofs);
+    data_span->SetAttribute("retval", op_ret);
   }
 
   if (!chunked_upload && ofs != s->content_length) {
