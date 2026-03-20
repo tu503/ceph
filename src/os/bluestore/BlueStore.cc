@@ -14294,7 +14294,7 @@ void BlueStore::_txc_state_proc(TransContext *txc)
 
       if (txc->otel_aio_span) {
 	txc->otel_aio_span->End();
-	txc->otel_aio_span.reset();
+	txc->otel_aio_span = jspan_ptr();
       }
       _txc_finish_io(txc);  // may trigger blocked txc's too
       return;
@@ -14356,7 +14356,7 @@ void BlueStore::_txc_state_proc(TransContext *txc)
       throttle.log_state_latency(*txc, logger, l_bluestore_state_kv_done_lat);
       if (txc->otel_span) {
 	txc->otel_span->End();
-	txc->otel_span.reset();
+	txc->otel_span = jspan_ptr();
       }
       if (txc->deferred_txn) {
 	txc->set_state(TransContext::STATE_DEFERRED_QUEUED);
