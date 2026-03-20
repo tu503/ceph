@@ -114,6 +114,7 @@ public:
   SpanContext() = default;
   SpanContext(bool sampled_flag, bool is_remote) {}
   bool IsValid() const { return false;}
+  static SpanContext GetInvalid() { return SpanContext(); }
 };
 } // namespace trace
 } // namespace v1
