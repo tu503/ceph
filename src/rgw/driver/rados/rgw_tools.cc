@@ -234,7 +234,7 @@ int rgw_rados_operate(const DoutPrefixProvider *dpp, librados::IoCtx& ioctx, con
                       optional_yield y, int flags, const jspan_context* trace_info,
                       version_t* pver)
 {
-  auto rados_span = tracing::rgw::tracer.add_span("rados_read", trace_info ? *trace_info : jspan_context());
+  auto rados_span = tracing::rgw::tracer.add_span("rados_read", trace_info ? *trace_info : jspan_context{false, false});
   if (rados_span->IsRecording()) {
     rados_span->SetAttribute("oid", oid);
     rados_span->SetAttribute("pool", ioctx.get_pool_name());
@@ -273,7 +273,7 @@ int rgw_rados_operate(const DoutPrefixProvider *dpp, librados::IoCtx& ioctx, con
                       librados::ObjectWriteOperation&& op, optional_yield y,
 		      int flags, const jspan_context* trace_info, version_t* pver)
 {
-  auto rados_span = tracing::rgw::tracer.add_span("rados_write", trace_info ? *trace_info : jspan_context());
+  auto rados_span = tracing::rgw::tracer.add_span("rados_write", trace_info ? *trace_info : jspan_context{false, false});
   if (rados_span->IsRecording()) {
     rados_span->SetAttribute("oid", oid);
     rados_span->SetAttribute("pool", ioctx.get_pool_name());
