@@ -983,6 +983,9 @@ void ECBackend::submit_transaction(
   op->pipeline = &rmw_pipeline;
   if (client_op) {
     op->trace = client_op->pg_trace;
+    if (client_op->osd_parent_span) {
+      op->otel_ctx = client_op->osd_parent_span->GetContext();
+    }
   }
   ECTransaction::WritePlan &plans = op->plan;
 

@@ -881,6 +881,9 @@ void ECCommon::RMWPipeline::cache_ready(Op &op) {
       r->map_epoch = get_osdmap_epoch();
       r->min_epoch = get_parent()->get_interval_start_epoch();
       r->trace = trace;
+      if (op.otel_ctx.IsValid()) {
+	r->otel_trace = op.otel_ctx;
+      }
       messages.push_back(std::make_pair(pg_shard.osd, r));
     }
   }

@@ -23,6 +23,7 @@
 #include "ECTypes.h"
 #include "messages/MOSDPGPushReply.h"
 #include "msg/MessageRef.h"
+#include "common/tracer.h"
 #if WITH_CRIMSON
 #include "crimson/osd/object_context.h"
 #include "os/Transaction.h"
@@ -475,6 +476,7 @@ struct ECCommon {
       ceph_tid_t tid;
       osd_reqid_t reqid;
       ZTracer::Trace trace;
+      jspan_context otel_ctx;
 
       /**
        * pg_commited_to

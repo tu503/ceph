@@ -656,6 +656,12 @@ void ReplicatedBackend::op_commit(const ceph::ref_t<InProgressOp>& op)
   op->waiting_for_commit.erase(get_parent()->whoami_shard());
 
   if (op->waiting_for_commit.empty()) {
+    if (op->op && op->op->osd_parent_span) {
+      auto span = tracing::osd::tracer.add_span("op_commit", op->op->osd_parent_span);
+      if (span->IsRecording()) {
+	span->SetAttribute("tid", (int64_t)op->tid);
+      }
+    }
     op->on_commit->complete(0);
     op->on_commit = 0;
     in_progress_ops.erase(op->tid);
@@ -1180,6 +1186,10 @@ void ReplicatedBackend::issue_op(
 	  pinfo);
       if (op->op && op->op->pg_trace)
 	wr->trace.init("replicated op", nullptr, &op->op->pg_trace);
+      if (op->op && op->op->osd_parent_span) {
+	static_cast<MOSDRepOp*>(wr)->otel_trace =
+	  op->op->osd_parent_span->GetContext();
+      }
       get_parent()->send_message_osd_cluster(
 	  shard.osd, wr, get_osdmap_epoch());
     }

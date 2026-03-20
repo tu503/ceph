@@ -24,7 +24,7 @@
 
 class MOSDRepOp final : public MOSDFastDispatchOp {
 private:
-  static constexpr int HEAD_VERSION = 3;
+  static constexpr int HEAD_VERSION = 4;
   static constexpr int COMPAT_VERSION = 1;
 
 public:
@@ -114,6 +114,9 @@ public:
     if (header.version >= 2) {
       decode(min_epoch, p);
       decode_trace(p);
+      if (header.version >= 4) {
+        decode_otel_trace(p);
+      }
     } else {
       min_epoch = map_epoch;
     }
@@ -152,6 +155,7 @@ public:
     header.version = HEAD_VERSION;
     encode(min_epoch, payload);
     encode_trace(payload, features);
+    encode_otel_trace(payload, features);
     encode(reqid, payload);
     encode(pgid, payload);
     encode(poid, payload);

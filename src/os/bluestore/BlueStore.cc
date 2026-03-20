@@ -60,6 +60,8 @@
 #include "Writer.h"
 #include "Compression.h"
 #include "BlueAdmin.h"
+#include "osd/osd_tracer.h"
+#include "osd/OpRequest.h"
 
 #if defined(WITH_LTTNG)
 #define TRACEPOINT_DEFINE
@@ -14269,6 +14271,10 @@ void BlueStore::_txc_state_proc(TransContext *txc)
         }
 #endif
 	txc->had_ios = true;
+	if (txc->otel_span && txc->otel_span->IsRecording()) {
+	  txc->otel_aio_span = tracing::osd::tracer.add_span(
+	    "txc_aio_wait", txc->otel_span);
+	}
 	_txc_aio_submit(txc);
 	return;
       }
@@ -14286,6 +14292,10 @@ void BlueStore::_txc_state_proc(TransContext *txc)
 	}
       }
 
+      if (txc->otel_aio_span) {
+	txc->otel_aio_span->End();
+	txc->otel_aio_span.reset();
+      }
       _txc_finish_io(txc);  // may trigger blocked txc's too
       return;
 
@@ -14344,6 +14354,10 @@ void BlueStore::_txc_state_proc(TransContext *txc)
 
     case TransContext::STATE_KV_DONE:
       throttle.log_state_latency(*txc, logger, l_bluestore_state_kv_done_lat);
+      if (txc->otel_span) {
+	txc->otel_span->End();
+	txc->otel_span.reset();
+      }
       if (txc->deferred_txn) {
 	txc->set_state(TransContext::STATE_DEFERRED_QUEUED);
 	_deferred_queue(txc);
@@ -15617,11 +15631,24 @@ int BlueStore::queue_transactions(
   TransContext *txc = _txc_create(static_cast<Collection*>(ch.get()), osr,
 				  &on_commit, op);
 
+  // create otel span for queue_transactions
+  if (op) {
+    auto osd_op = dynamic_cast<OpRequest*>(op.get());
+    if (osd_op && osd_op->osd_parent_span) {
+      txc->otel_span = tracing::osd::tracer.add_span(
+	"queue_transactions", osd_op->osd_parent_span);
+    }
+  }
+
   for (vector<Transaction>::iterator p = tls.begin(); p != tls.end(); ++p) {
     txc->bytes += (*p).get_num_bytes();
     _txc_add_transaction(txc, &(*p));
   }
   _txc_calc_cost(txc);
+
+  if (txc->otel_span && txc->otel_span->IsRecording()) {
+    txc->otel_span->SetAttribute("bytes", (int64_t)txc->bytes);
+  }
 
   _txc_write_nodes(txc, txc->t);
 

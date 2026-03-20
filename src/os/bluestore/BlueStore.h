@@ -59,6 +59,7 @@
 #include "BlueFS.h"
 #include "common/EventTrace.h"
 #include "common/admin_socket.h"
+#include "common/tracer.h"
 
 #ifdef WITH_BLKIN
 #include "common/zipkin_trace.h"
@@ -1956,6 +1957,8 @@ public:
 #ifdef WITH_BLKIN
     ZTracer::Trace trace;
 #endif
+    jspan_ptr otel_span;
+    jspan_ptr otel_aio_span;
 
     ceph::mutex writings_lock = ceph::make_mutex("BlueStore::TransContextWritings::lock");
     struct WriteObserverEntry {

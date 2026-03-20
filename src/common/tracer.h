@@ -132,6 +132,7 @@ public:
   jspan_context GetContext() const { return _ctx; }
   void UpdateName(std::string_view) {}
   bool IsRecording() { return false; }
+  void End() {}
 };
 
 class jspan_ptr {
@@ -144,6 +145,7 @@ public:
   operator bool() const { return false; }
   jspan* get() { return &span; }
   const jspan* get() const { return &span; }
+  void reset() {}
 };
 
 namespace tracing {
