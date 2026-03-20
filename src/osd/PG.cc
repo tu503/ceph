@@ -13,6 +13,7 @@
  */
 
 #include "PG.h"
+#include "osd_perf_counters.h"
 #include "messages/MOSDRepScrub.h"
 
 #include "common/debug.h"
@@ -2114,6 +2115,17 @@ bool PG::can_discard_request(OpRequestRef& op)
 void PG::do_peering_event(PGPeeringEventRef evt, PeeringCtx &rctx)
 {
   dout(10) << __func__ << ": " << evt->get_desc() << dendl;
+
+  // Rec 2: measure queue dwell time
+  {
+    utime_t dwell = ceph_clock_now() - evt->get_stamp();
+    get_peering_perf().tinc(rs_peering_queue_latency, dwell);
+    if (dwell > utime_t(0, 100000000)) { // > 100ms
+      dout(5) << __func__ << " peering event queued for " << dwell
+	      << ": " << evt->get_desc() << dendl;
+    }
+  }
+
   ceph_assert(have_same_or_newer_map(evt->get_epoch_sent()));
   if (old_peering_evt(evt)) {
     dout(10) << "discard old " << evt->get_desc() << dendl;

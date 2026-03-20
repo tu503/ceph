@@ -11,6 +11,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <boost/statechart/event.hpp>
 
+#include "common/Clock.h"
 #include "osd/osd_types.h"
 
 class MOSDPGLog;
@@ -33,6 +34,7 @@ class PGPeeringEvent {
   epoch_t epoch_sent;
   epoch_t epoch_requested;
   std::string desc;
+  utime_t stamp;  // Rec 2: creation time for queue dwell measurement
 public:
   boost::intrusive_ptr< const boost::statechart::event_base > evt;
   bool requires_pg;
@@ -47,6 +49,7 @@ public:
     PGCreateInfo *ci = 0)
     : epoch_sent(epoch_sent),
       epoch_requested(epoch_requested),
+      stamp(ceph_clock_now()),
       evt(evt_.intrusive_from_this()),
       requires_pg(req),
       create_info(ci) {
@@ -70,6 +73,9 @@ public:
   }
   const std::string& get_desc() const {
     return desc;
+  }
+  const utime_t& get_stamp() const {
+    return stamp;
   }
 };
 typedef std::shared_ptr<PGPeeringEvent> PGPeeringEventRef;

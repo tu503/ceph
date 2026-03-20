@@ -5504,6 +5504,9 @@ PeeringState::Peering::Peering(my_context ctx)
   ceph_assert(!ps->is_peering());
   ceph_assert(ps->is_primary());
   ps->state_set(PG_STATE_PEERING);
+
+  // Rec 3: count peering entries (restarts show up as repeated increments)
+  pl->get_peering_perf().inc(rs_peering_restart_count);
 }
 
 boost::statechart::result PeeringState::Peering::react(const AdvMap& advmap)
@@ -7438,6 +7441,7 @@ void PeeringState::GetInfo::get_infos()
 		   ps->info.history,
 		   ps->get_osdmap_epoch()));
       peer_info_requested.insert(peer);
+      peer_query_sent[peer] = ceph_clock_now();
       ps->blocked_by.insert(peer.osd);
     }
   }
@@ -7456,6 +7460,19 @@ boost::statechart::result PeeringState::GetInfo::react(const MNotifyRec& infoevt
   if (p != peer_info_requested.end()) {
     peer_info_requested.erase(p);
     ps->blocked_by.erase(infoevt.from.osd);
+
+    // Rec 1: per-peer RTT measurement
+    auto sq = peer_query_sent.find(infoevt.from);
+    if (sq != peer_query_sent.end()) {
+      utime_t rtt = ceph_clock_now() - sq->second;
+      pl->get_peering_perf().tinc(rs_getinfo_peer_rtt, rtt);
+      if (rtt > slowest_peer_rtt) {
+	slowest_peer_rtt = rtt;
+      }
+      psdout(10) << " osd." << infoevt.from
+		 << " GetInfo RTT " << rtt << dendl;
+      peer_query_sent.erase(sq);
+    }
   }
 
   epoch_t old_start = ps->info.history.last_epoch_started;
@@ -7537,6 +7554,13 @@ void PeeringState::GetInfo::exit()
   DECLARE_LOCALS;
   utime_t dur = ceph_clock_now() - enter_time;
   pl->get_peering_perf().tinc(rs_getinfo_latency, dur);
+
+  // Rec 1: record the slowest peer RTT for this GetInfo round
+  if (slowest_peer_rtt > utime_t()) {
+    pl->get_peering_perf().tinc(rs_getinfo_slowest_peer_rtt, slowest_peer_rtt);
+    psdout(10) << " GetInfo slowest peer RTT: " << slowest_peer_rtt << dendl;
+  }
+
   ps->blocked_by.clear();
 }
 

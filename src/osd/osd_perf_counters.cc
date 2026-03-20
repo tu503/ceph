@@ -514,6 +514,10 @@ PerfCounters *build_recoverystate_perf(CephContext *cct) {
   rs_perf.add_time_avg(rs_getmissing_latency, "getmissing_latency", "Getmissing recovery state latency");
   rs_perf.add_time_avg(rs_waitupthru_latency, "waitupthru_latency", "Waitupthru recovery state latency");
   rs_perf.add_time_avg(rs_notrecovering_latency, "notrecovering_latency", "Notrecovering recovery state latency");
+  rs_perf.add_time_avg(rs_getinfo_peer_rtt, "getinfo_peer_rtt", "Per-peer round-trip time during GetInfo");
+  rs_perf.add_time_avg(rs_getinfo_slowest_peer_rtt, "getinfo_slowest_peer_rtt", "Slowest peer RTT per GetInfo round");
+  rs_perf.add_time_avg(rs_peering_queue_latency, "peering_queue_latency", "Peering event queue dwell time");
+  rs_perf.add_u64_counter(rs_peering_restart_count, "peering_restart_count", "Number of times Peering state entered");
 
   return rs_perf.create_perf_counters();
 }

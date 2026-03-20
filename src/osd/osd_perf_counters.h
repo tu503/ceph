@@ -251,6 +251,10 @@ enum {
   rs_getmissing_latency,
   rs_waitupthru_latency,
   rs_notrecovering_latency,
+  rs_getinfo_peer_rtt,        // per-peer RTT during GetInfo (time_avg)
+  rs_getinfo_slowest_peer_rtt, // slowest peer RTT per GetInfo round (time_avg)
+  rs_peering_queue_latency,   // enqueue-to-dequeue dwell time (time_avg)
+  rs_peering_restart_count,   // number of times Peering state entered (counter)
   rs_last,
 };
 

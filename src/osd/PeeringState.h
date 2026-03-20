@@ -1290,6 +1290,8 @@ public:
 
   struct GetInfo : boost::statechart::state< GetInfo, Peering >, NamedState {
     std::set<pg_shard_t> peer_info_requested;
+    std::map<pg_shard_t, utime_t> peer_query_sent;  // send timestamp per peer
+    utime_t slowest_peer_rtt;                        // track max RTT this round
 
     explicit GetInfo(my_context ctx);
     void exit();
