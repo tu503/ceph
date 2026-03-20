@@ -22,6 +22,7 @@
 #include "include/stringify.h"
 #include "common/Timer.h"
 #include "messages/PaxosServiceMessage.h"
+#include "mon_tracer.h"
 
 #ifdef WITH_CRIMSON
 #include "crimson/common/perf_counters_collection.h"
@@ -617,9 +618,16 @@ void Paxos::collect_timeout()
 // leader
 void Paxos::begin(bufferlist& v)
 {
-  dout(10) << "begin for " << last_committed+1 << " " 
+  dout(10) << "begin for " << last_committed+1 << " "
 	   << v.length() << " bytes"
 	   << dendl;
+
+  auto paxos_span = tracing::mon::tracer.start_trace("paxos_begin");
+  if (paxos_span->IsRecording()) {
+    paxos_span->SetAttribute("version", (int64_t)(last_committed + 1));
+    paxos_span->SetAttribute("value_size", (int64_t)v.length());
+    paxos_span->SetAttribute("paxos_name", paxos_name);
+  }
 
   ceph_assert(mon.is_leader());
   ceph_assert(is_updating() || is_updating_previous());
@@ -852,6 +860,12 @@ void Paxos::abort_commit()
 void Paxos::commit_start()
 {
   dout(10) << __func__ << " " << (last_committed+1) << dendl;
+
+  auto commit_span = tracing::mon::tracer.start_trace("paxos_commit");
+  if (commit_span->IsRecording()) {
+    commit_span->SetAttribute("version", (int64_t)(last_committed + 1));
+    commit_span->SetAttribute("paxos_name", paxos_name);
+  }
 
   ceph_assert(g_conf()->paxos_kill_at != 7);
 
@@ -1537,10 +1551,18 @@ void Paxos::propose_pending()
   ceph_assert(is_active());
   ceph_assert(pending_proposal);
 
+  auto propose_span = tracing::mon::tracer.start_trace("paxos_propose");
+
   cancel_events();
 
   bufferlist bl;
   pending_proposal->encode(bl);
+
+  if (propose_span->IsRecording()) {
+    propose_span->SetAttribute("version", (int64_t)(last_committed + 1));
+    propose_span->SetAttribute("value_size", (int64_t)bl.length());
+    propose_span->SetAttribute("paxos_name", paxos_name);
+  }
 
   dout(10) << __func__ << " " << (last_committed + 1)
 	   << " " << bl.length() << " bytes" << dendl;

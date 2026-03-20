@@ -22,7 +22,9 @@ const jspan_ptr Tracer::noop_span = noop_tracer->StartSpan("noop");
 
 using bufferlist = ceph::buffer::list;
 
-void Tracer::init(CephContext* _cct, opentelemetry::nostd::string_view service_name) {
+void Tracer::init(CephContext* _cct, opentelemetry::nostd::string_view service_name,
+                  opentelemetry::nostd::string_view instance_id,
+                  const std::map<std::string, std::string>& extra_attrs) {
   ceph_assert(_cct);
   cct = _cct;
   if (!tracer) {
@@ -38,7 +40,15 @@ void Tracer::init(CephContext* _cct, opentelemetry::nostd::string_view service_n
     ldout(cct, 3) << "OTLP HTTP exporter endpoint: " << exporter_options.url << dendl;
     auto otlp_exporter = opentelemetry::exporter::otlp::OtlpHttpExporterFactory::Create(exporter_options);
     const opentelemetry::sdk::trace::BatchSpanProcessorOptions processor_options;
-    const auto resource = opentelemetry::sdk::resource::Resource::Create(std::move(opentelemetry::sdk::resource::ResourceAttributes{{"service.name", service_name}}));
+    opentelemetry::sdk::resource::ResourceAttributes res_attrs{{"service.name", service_name}};
+    if (!instance_id.empty()) {
+      res_attrs.SetAttribute("service.instance.id", instance_id);
+    }
+    for (const auto& [k, v] : extra_attrs) {
+      res_attrs.SetAttribute(opentelemetry::nostd::string_view(k),
+                             opentelemetry::common::AttributeValue(opentelemetry::nostd::string_view(v)));
+    }
+    const auto resource = opentelemetry::sdk::resource::Resource::Create(std::move(res_attrs));
     auto processor = std::unique_ptr<opentelemetry::sdk::trace::SpanProcessor>(new opentelemetry::sdk::trace::BatchSpanProcessor(std::move(otlp_exporter), processor_options));
     const auto provider = opentelemetry::nostd::shared_ptr<opentelemetry::trace::TracerProvider>(new opentelemetry::sdk::trace::TracerProvider(std::move(processor), resource));
     opentelemetry::trace::Provider::SetTracerProvider(provider);

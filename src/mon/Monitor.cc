@@ -95,6 +95,7 @@
 #include "perfglue/heap_profiler.h"
 
 #include "auth/none/AuthNoneClientHandler.h"
+#include "mon_tracer.h"
 
 #ifdef WITH_CRIMSON
 #include "crimson/common/perf_counters_collection.h"
@@ -952,6 +953,8 @@ int Monitor::init()
 {
   dout(2) << "init" << dendl;
   std::lock_guard l(lock);
+
+  tracing::mon::tracer.init(cct, "mon", name);
 
   finisher.start();
 
@@ -3439,6 +3442,12 @@ void Monitor::handle_command(MonOpRequestRef op)
 
   dout(0) << "handle_command " << *m << dendl;
 
+  auto cmd_span = tracing::mon::tracer.start_trace("handle_command");
+  if (cmd_span->IsRecording()) {
+    cmd_span->SetAttribute("prefix", prefix);
+    cmd_span->SetAttribute("src", stringify(m->get_source_inst()));
+  }
+
   string format = cmd_getval_or<string>(cmdmap, "format", "plain");
   boost::scoped_ptr<Formatter> f(Formatter::create(format));
 
@@ -4598,6 +4607,11 @@ void Monitor::_ms_dispatch(Message *m)
 void Monitor::dispatch_op(MonOpRequestRef op)
 {
   op->mark_event("mon:dispatch_op");
+  auto dispatch_span = tracing::mon::tracer.start_trace("dispatch_op");
+  if (dispatch_span->IsRecording()) {
+    dispatch_span->SetAttribute("msg_type", (int64_t)op->get_req()->get_type());
+    dispatch_span->SetAttribute("src", stringify(op->get_req()->get_source_inst()));
+  }
 
   MonSession *s = op->get_session();
   ceph_assert(s);

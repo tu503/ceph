@@ -5,6 +5,8 @@
 
 #include "acconfig.h"
 #include "include/encoding.h"
+#include <map>
+#include <string>
 
 #ifdef HAVE_JAEGER
 #include "opentelemetry/trace/provider.h"
@@ -32,7 +34,9 @@ class Tracer {
 
   Tracer() = default;
 
-  void init(CephContext* _cct, opentelemetry::nostd::string_view service_name);
+  void init(CephContext* _cct, opentelemetry::nostd::string_view service_name,
+            opentelemetry::nostd::string_view instance_id = "",
+            const std::map<std::string, std::string>& extra_attrs = {});
 
   bool is_enabled() const;
   // creates and returns a new span with `trace_name`
@@ -145,7 +149,9 @@ public:
 namespace tracing {
 
 struct Tracer {
-  void init(CephContext* _cct, std::string_view service_name) {}
+  void init(CephContext* _cct, std::string_view service_name,
+            std::string_view instance_id = "",
+            const std::map<std::string, std::string>& extra_attrs = {}) {}
   bool is_enabled() const { return false; }
   jspan_ptr start_trace(std::string_view, bool enabled = true) { return {}; }
   jspan_ptr add_span(std::string_view, const jspan_ptr&) { return {}; }

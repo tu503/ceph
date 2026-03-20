@@ -26,7 +26,8 @@ set(lib_mon_srcs
   ../mds/MDSAuthCaps.cc
   ../mgr/mgr_commands.cc
   ../osd/OSDCap.cc
-  ../mgr/MgrCap.cc)
+  ../mgr/MgrCap.cc
+  mon_tracer.cc)
 
 if(TARGET mgr_cap_obj)
   list(APPEND lib_mon_srcs $<TARGET_OBJECTS:mgr_cap_obj>)

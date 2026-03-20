@@ -18,6 +18,7 @@
 #include "global/signal_handler.h"
 #include "common/config.h"
 #include "common/errno.h"
+#include "common/hostname.h"
 #include "common/Timer.h"
 #include "common/TracepointProvider.h"
 #include "common/openssl_opts_handler.h"
@@ -556,7 +557,10 @@ void rgw::AppMain::init_tracepoints()
 {
   TracepointProvider::initialize<rgw_rados_tracepoint_traits>(dpp->get_cct());
   TracepointProvider::initialize<rgw_op_tracepoint_traits>(dpp->get_cct());
-  tracing::rgw::tracer.init(dpp->get_cct(), "rgw");
+  std::string rgw_instance_id = ceph_get_short_hostname() + ":" + stringify(getpid());
+  std::string rgw_zone = dpp->get_cct()->_conf.get_val<std::string>("rgw_zone");
+  tracing::rgw::tracer.init(dpp->get_cct(), "rgw", rgw_instance_id,
+                            {{"rgw.zone", rgw_zone}});
 } /* init_tracepoints() */
 
 void rgw::AppMain::init_lua()

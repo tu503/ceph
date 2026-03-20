@@ -77,6 +77,7 @@
 #include "common/config.h"
 
 #include "msg/Message.h"
+#include "mds_tracer.h"
 
 #define dout_context g_ceph_context
 #define dout_subsys ceph_subsys_mds
@@ -2579,6 +2580,16 @@ void Server::handle_client_request(const cref_t<MClientRequest> &req)
 {
   dout(4) << "handle_client_request " << *req << dendl;
 
+  auto req_span = tracing::mds::tracer.start_trace("client_request");
+  if (req_span->IsRecording()) {
+    req_span->SetAttribute("op", ceph_mds_op_name(req->get_op()));
+    req_span->SetAttribute("client", stringify(req->get_source()));
+    auto path = req->get_filepath().get_path();
+    if (!path.empty()) {
+      req_span->SetAttribute("path", path);
+    }
+  }
+
   if (mds->logger)
     mds->logger->inc(l_mds_request);
   if (logger)
@@ -4175,6 +4186,12 @@ CDir* Server::try_open_auth_dirfrag(CInode *diri, frag_t fg, const MDRequestRef&
 void Server::handle_client_getattr(const MDRequestRef& mdr, bool is_lookup)
 {
   const cref_t<MClientRequest> &req = mdr->client_request;
+
+  auto span = tracing::mds::tracer.start_trace(is_lookup ? "lookup" : "getattr");
+  if (span->IsRecording()) {
+    span->SetAttribute("path", req->get_filepath().get_path());
+  }
+
   client_t client = mdr->get_client();
 
   if (req->get_filepath().depth() == 0 && is_lookup) {
@@ -4537,6 +4554,12 @@ void Server::handle_client_open(const MDRequestRef& mdr)
 {
   const cref_t<MClientRequest> &req = mdr->client_request;
   dout(7) << "open on " << req->get_filepath() << dendl;
+
+  auto span = tracing::mds::tracer.start_trace("open");
+  if (span->IsRecording()) {
+    span->SetAttribute("path", req->get_filepath().get_path());
+    span->SetAttribute("flags", (int64_t)req->head.args.open.flags);
+  }
 
   int flags = req->head.args.open.flags;
   int cmode = ceph_flags_to_mode(flags);
@@ -4987,6 +5010,12 @@ void Server::_finalize_readdir(const MDRequestRef& mdr,
 void Server::handle_client_readdir(const MDRequestRef& mdr)
 {
   const cref_t<MClientRequest> &req = mdr->client_request;
+
+  auto span = tracing::mds::tracer.start_trace("readdir");
+  if (span->IsRecording()) {
+    span->SetAttribute("path", req->get_filepath().get_path());
+  }
+
   Session *session = mds->get_session(req);
   client_t client = req->get_source().num();
   MutationImpl::LockOpVec lov;
@@ -7419,6 +7448,11 @@ void Server::handle_client_mkdir(const MDRequestRef& mdr)
 {
   const cref_t<MClientRequest> &req = mdr->client_request;
 
+  auto span = tracing::mds::tracer.start_trace("mkdir");
+  if (span->IsRecording()) {
+    span->SetAttribute("path", req->get_filepath().get_path());
+  }
+
   mdr->disable_lock_cache();
   CDentry *dn = rdlock_path_xlock_dentry(mdr, true);
   if (!dn)
@@ -8304,6 +8338,11 @@ void Server::handle_client_unlink(const MDRequestRef& mdr)
   // rmdir or unlink?
   bool rmdir = (req->get_op() == CEPH_MDS_OP_RMDIR);
 
+  auto span = tracing::mds::tracer.start_trace(rmdir ? "rmdir" : "unlink");
+  if (span->IsRecording()) {
+    span->SetAttribute("path", req->get_filepath().get_path());
+  }
+
   if (rmdir)
     mdr->disable_lock_cache();
   CDentry *dn = rdlock_path_xlock_dentry(mdr, false, true);
@@ -9050,6 +9089,12 @@ void Server::handle_client_rename(const MDRequestRef& mdr)
 
   filepath destpath = req->get_filepath();
   filepath srcpath = req->get_filepath2();
+
+  auto span = tracing::mds::tracer.start_trace("rename");
+  if (span->IsRecording()) {
+    span->SetAttribute("src_path", srcpath.get_path());
+    span->SetAttribute("dst_path", destpath.get_path());
+  }
   if (srcpath.is_last_dot_or_dotdot() || destpath.is_last_dot_or_dotdot()) {
     respond_to_request(mdr, -EBUSY);
     return;

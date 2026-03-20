@@ -55,6 +55,10 @@
 
 #include "QuiesceDbManager.h"
 #include "QuiesceAgent.h"
+#include "mds_tracer.h"
+#include "common/hostname.h"
+#include "include/stringify.h"
+#include <unistd.h>
 
 #define dout_context g_ceph_context
 #define dout_subsys ceph_subsys_mds
@@ -575,6 +579,10 @@ MDSRank::~MDSRank()
 
 void MDSRankDispatcher::init()
 {
+  std::string mds_instance_id = ceph_get_short_hostname() + ":" + stringify(getpid());
+  tracing::mds::tracer.init(g_ceph_context, "mds", mds_instance_id,
+                            {{"mds.rank", stringify((int)whoami)}});
+
   objecter->init();
   messenger->add_dispatcher_tail(objecter); // the default priority
 
