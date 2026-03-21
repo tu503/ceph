@@ -99,7 +99,7 @@ jspan_ptr Tracer::add_span(opentelemetry::nostd::string_view span_name, const js
 }
 
 bool Tracer::is_enabled() const {
-  return cct->_conf->jaeger_tracing_enable;
+  return cct && cct->_conf->jaeger_tracing_enable;
 }
 
 } // namespace tracing
