@@ -29,6 +29,7 @@ if(WITH_BLUESTORE)
     bluestore/Writer.cc
     bluestore/Compression.cc
     bluestore/BlueAdmin.cc
+    bluestore/bluestore_tracer.cc
   )
 endif(WITH_BLUESTORE)
 

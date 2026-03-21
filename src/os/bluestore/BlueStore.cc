@@ -60,7 +60,7 @@
 #include "Writer.h"
 #include "Compression.h"
 #include "BlueAdmin.h"
-#include "osd/osd_tracer.h"
+#include "bluestore_tracer.h"
 #include "osd/OpRequest.h"
 
 #if defined(WITH_LTTNG)
@@ -14272,7 +14272,7 @@ void BlueStore::_txc_state_proc(TransContext *txc)
 #endif
 	txc->had_ios = true;
 	if (txc->otel_span && txc->otel_span->IsRecording()) {
-	  txc->otel_aio_span = tracing::osd::tracer.add_span(
+	  txc->otel_aio_span = tracing::bluestore::tracer.add_span(
 	    "txc_aio_wait", txc->otel_span);
 	}
 	_txc_aio_submit(txc);
@@ -15635,7 +15635,7 @@ int BlueStore::queue_transactions(
   if (op) {
     auto osd_op = dynamic_cast<OpRequest*>(op.get());
     if (osd_op && osd_op->osd_parent_span) {
-      txc->otel_span = tracing::osd::tracer.add_span(
+      txc->otel_span = tracing::bluestore::tracer.add_span(
 	"queue_transactions", osd_op->osd_parent_span);
     }
   }
