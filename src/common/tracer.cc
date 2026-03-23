@@ -39,7 +39,9 @@ void Tracer::init(CephContext* _cct, opentelemetry::nostd::string_view service_n
     }
     ldout(cct, 3) << "OTLP HTTP exporter endpoint: " << exporter_options.url << dendl;
     auto otlp_exporter = opentelemetry::exporter::otlp::OtlpHttpExporterFactory::Create(exporter_options);
-    const opentelemetry::sdk::trace::BatchSpanProcessorOptions processor_options;
+    opentelemetry::sdk::trace::BatchSpanProcessorOptions processor_options;
+    processor_options.max_queue_size = 16384;
+    processor_options.max_export_batch_size = 4096;
     opentelemetry::sdk::resource::ResourceAttributes res_attrs{{"service.name", service_name}};
     if (!instance_id.empty()) {
       res_attrs.SetAttribute("service.instance.id", instance_id);
