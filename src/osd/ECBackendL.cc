@@ -1533,6 +1533,9 @@ void ECBackendL::submit_transaction(
   op->client_op = client_op;
   if (client_op) {
     op->trace = client_op->pg_trace;
+    if (client_op->osd_parent_span) {
+      op->otel_ctx = client_op->osd_parent_span->GetContext();
+    }
   }
   op->plan = op->get_write_plan(
     sinfo,

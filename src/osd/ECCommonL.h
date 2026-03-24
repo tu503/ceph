@@ -362,6 +362,7 @@ struct ECCommonL {
       ceph_tid_t tid;
       osd_reqid_t reqid;
       ZTracer::Trace trace;
+      jspan_context otel_ctx{jspan_context::GetInvalid()};
 
       /**
        * pg_commited_to
