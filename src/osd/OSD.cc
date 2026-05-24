@@ -3746,7 +3746,10 @@ int OSD::init()
   if (is_stopping())
     return 0;
   tracing::osd::tracer.init(cct, "osd", std::to_string(whoami));
-  tracing::bluestore::tracer.init(cct, "bluestore", std::to_string(whoami));
+  // Share the OSD daemon's OTLP exporter; calling .init() would call
+  // SetTracerProvider again and shut down the OSD tracer's batch processor
+  // in opentelemetry-cpp 1.24.
+  tracing::bluestore::tracer.init_from_global(cct, "bluestore");
   tick_timer.init();
   tick_timer_without_osd_lock.init();
   service.recovery_request_timer.init();

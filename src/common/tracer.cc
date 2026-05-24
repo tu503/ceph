@@ -58,6 +58,16 @@ void Tracer::init(CephContext* _cct, opentelemetry::nostd::string_view service_n
   }
 }
 
+void Tracer::init_from_global(CephContext* _cct, opentelemetry::nostd::string_view scope_name) {
+  ceph_assert(_cct);
+  cct = _cct;
+  if (!tracer) {
+    ldout(cct, 3) << "binding tracer scope '" << scope_name << "' to global provider" << dendl;
+    auto provider = opentelemetry::trace::Provider::GetTracerProvider();
+    tracer = provider->GetTracer(scope_name, OPENTELEMETRY_SDK_VERSION);
+  }
+}
+
 jspan_ptr Tracer::start_trace(opentelemetry::nostd::string_view trace_name) {
   ceph_assert(cct);
   if (is_enabled()) {

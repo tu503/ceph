@@ -258,8 +258,13 @@ public:
   }
 
   int objects_read_sync(const hobject_t &hoid, uint64_t off, uint64_t len,
-                        uint32_t op_flags, ceph::buffer::list *bl) override
+                        uint32_t op_flags, ceph::buffer::list *bl,
+                        const jspan_context *parent_trace = nullptr) override
   {
+    // EC backends don't currently propagate the parent trace down to the
+    // ObjectStore; drop it here so the signature matches their existing
+    // 5-arg form. EC reads will surface bluestore_read as orphan traces.
+    (void)parent_trace;
     if (is_optimized()) {
       return optimized.objects_read_sync(hoid, off, len, op_flags, bl);
     }

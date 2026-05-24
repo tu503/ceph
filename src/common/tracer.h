@@ -38,6 +38,12 @@ class Tracer {
             opentelemetry::nostd::string_view instance_id = "",
             const std::map<std::string, std::string>& extra_attrs = {});
 
+  // Get a tracer from the GLOBAL provider (set by another tracer.init() earlier
+  // in the same process). Use this when multiple tracers in one process need
+  // to share the same exporter so SetTracerProvider doesn't clobber the first.
+  void init_from_global(CephContext* _cct, opentelemetry::nostd::string_view scope_name);
+
+
   bool is_enabled() const;
   // creates and returns a new span with `trace_name`
   // this span represents a trace, since it has no parent.

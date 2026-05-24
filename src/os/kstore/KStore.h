@@ -457,7 +457,8 @@ public:
     uint64_t offset,
     size_t len,
     ceph::buffer::list& bl,
-    uint32_t op_flags = 0) override;
+    uint32_t op_flags = 0,
+    const jspan_context *parent_trace = nullptr) override;
   int _do_read(
     OnodeRef o,
     uint64_t offset,

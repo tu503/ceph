@@ -1611,12 +1611,11 @@ void PrimaryLogPG::do_pg_op(OpRequestRef op)
 	    wait_for_unreadable_object(oid, op);
 	    return;
 	  }
-	  jspan_context hsa_parent;
 	  const jspan_context *hsa_parent_ptr = nullptr;
-	  if (ctx->op && ctx->op->osd_parent_span) {
-	    hsa_parent = ctx->op->osd_parent_span->GetContext();
-	    if (hsa_parent.IsValid()) hsa_parent_ptr = &hsa_parent;
-	  }
+	  jspan_context hsa_parent = (op && op->osd_parent_span)
+	    ? op->osd_parent_span->GetContext()
+	    : jspan_context{false, false};
+	  if (hsa_parent.IsValid()) hsa_parent_ptr = &hsa_parent;
 	  result = osd->store->read(ch, ghobject_t(oid), 0, 0, osd_op.outdata, 0, hsa_parent_ptr);
 	}
       }
@@ -5911,12 +5910,11 @@ int PrimaryLogPG::do_read(OpContext *ctx, OSDOp& osd_op) {
     ctx->op_finishers[ctx->current_osd_subop_num].reset(
       new ReadFinisher(osd_op));
   } else {
-    jspan_context read_parent;
     const jspan_context *read_parent_ptr = nullptr;
-    if (ctx->op && ctx->op->osd_parent_span) {
-      read_parent = ctx->op->osd_parent_span->GetContext();
-      if (read_parent.IsValid()) read_parent_ptr = &read_parent;
-    }
+    jspan_context read_parent = (ctx->op && ctx->op->osd_parent_span)
+      ? ctx->op->osd_parent_span->GetContext()
+      : jspan_context{false, false};
+    if (read_parent.IsValid()) read_parent_ptr = &read_parent;
     int r = pgbackend->objects_read_sync(
       soid, op.extent.offset, op.extent.length, op.flags, &osd_op.outdata, read_parent_ptr);
     // whole object?  can we verify the checksum?
@@ -9400,12 +9398,11 @@ int PrimaryLogPG::do_copy_get(OpContext *ctx, bufferlist::const_iterator& bp,
 
 	dout(10) << __func__ << ": async_read noted for " << soid << dendl;
       } else {
-	jspan_context chunk_parent;
 	const jspan_context *chunk_parent_ptr = nullptr;
-	if (ctx->op && ctx->op->osd_parent_span) {
-	  chunk_parent = ctx->op->osd_parent_span->GetContext();
-	  if (chunk_parent.IsValid()) chunk_parent_ptr = &chunk_parent;
-	}
+	jspan_context chunk_parent = (ctx->op && ctx->op->osd_parent_span)
+	  ? ctx->op->osd_parent_span->GetContext()
+	  : jspan_context{false, false};
+	if (chunk_parent.IsValid()) chunk_parent_ptr = &chunk_parent;
 	result = pgbackend->objects_read_sync(
 	  oi.soid, cursor.data_offset, max_read, osd_op.op.flags, &bl, chunk_parent_ptr);
 	if (result < 0)
@@ -10716,14 +10713,9 @@ int PrimaryLogPG::do_cdc(const object_info_t& oi,
    * Therefore, we should change the current implementation totally to make EC pool compatible. 
    * As s result, we leave this as a future work.
    */
-  jspan_context dedup_parent;
-  const jspan_context *dedup_parent_ptr = nullptr;
-  if (ctx->op && ctx->op->osd_parent_span) {
-    dedup_parent = ctx->op->osd_parent_span->GetContext();
-    if (dedup_parent.IsValid()) dedup_parent_ptr = &dedup_parent;
-  }
+  // dedup base-read context has no OpRequest in scope; orphan trace for now
   int r = pgbackend->objects_read_sync(
-      oi.soid, 0, oi.size, 0, &bl, dedup_parent_ptr);
+      oi.soid, 0, oi.size, 0, &bl, nullptr);
   if (r < 0) {
     dout(0) << __func__ << " read fail " << oi.soid
             << " len: " << oi.size << " r: " << r << dendl;
