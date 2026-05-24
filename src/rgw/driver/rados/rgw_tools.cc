@@ -258,7 +258,7 @@ int rgw_rados_operate(const DoutPrefixProvider *dpp, librados::IoCtx& ioctx, con
     r = -ec.value();
   } else {
     maybe_warn_about_blocking(dpp);
-    r = ioctx.operate(oid, &op, nullptr, flags);
+    r = ioctx.operate(oid, &op, nullptr, flags, trace_info);
     if (pver) {
       *pver = ioctx.get_last_version();
     }

@@ -156,13 +156,13 @@ struct librados::IoCtxImpl {
   int rmxattr(const object_t& oid, const char *name);
 
   int operate(const object_t& oid, ::ObjectOperation *o, ceph::real_time *pmtime, int flags=0, const jspan_context *otel_trace = nullptr);
-  int operate_read(const object_t& oid, ::ObjectOperation *o, bufferlist *pbl, int flags=0, int flags_mask=-1);
+  int operate_read(const object_t& oid, ::ObjectOperation *o, bufferlist *pbl, int flags=0, int flags_mask=-1, const jspan_context *otel_trace = nullptr);
   int aio_operate(const object_t& oid, ::ObjectOperation *o,
 		  AioCompletionImpl *c, const SnapContext& snap_context,
 		  const ceph::real_time *pmtime, int flags,
 		  const blkin_trace_info *trace_info = nullptr, const jspan_context *otel_trace = nullptr);
   int aio_operate_read(const object_t& oid, ::ObjectOperation *o,
-		       AioCompletionImpl *c, int flags, bufferlist *pbl, const blkin_trace_info *trace_info = nullptr);
+		       AioCompletionImpl *c, int flags, bufferlist *pbl, const blkin_trace_info *trace_info = nullptr, const jspan_context *otel_trace = nullptr);
 
   struct C_aio_stat_Ack : public Context {
     librados::AioCompletionImpl *c;

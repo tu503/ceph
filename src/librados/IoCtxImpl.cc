@@ -686,7 +686,8 @@ int librados::IoCtxImpl::operate_read(const object_t& oid,
 				      ::ObjectOperation *o,
 				      bufferlist *pbl,
 				      int flags,
-                                      int flags_mask)
+                                      int flags_mask,
+                                      const jspan_context *otel_trace)
 {
   if (!o->size())
     return 0;
@@ -706,7 +707,8 @@ int librados::IoCtxImpl::operate_read(const object_t& oid,
     *o, snap_seq, pbl,
     flags | extra_op_flags,
     flags_mask,
-    onack, &ver);
+    onack, &ver,
+    nullptr, 0, nullptr, otel_trace);
   objecter->op_submit(objecter_op);
 
   {
@@ -726,7 +728,8 @@ int librados::IoCtxImpl::aio_operate_read(const object_t &oid,
 					  AioCompletionImpl *c,
 					  int flags,
 					  bufferlist *pbl,
-                                          const blkin_trace_info *trace_info)
+                                          const blkin_trace_info *trace_info,
+                                          const jspan_context *otel_trace)
 {
   FUNCTRACE(client->cct);
   Context *oncomplete = new C_aio_Complete(c);
@@ -747,7 +750,7 @@ int librados::IoCtxImpl::aio_operate_read(const object_t &oid,
   Objecter::Op *objecter_op = objecter->prepare_read_op(
     oid, oloc,
     *o, snap_seq, pbl, flags | extra_op_flags, -1,
-    oncomplete, &c->objver, nullptr, 0, &trace);
+    oncomplete, &c->objver, nullptr, 0, &trace, otel_trace);
   objecter->op_submit(objecter_op, &c->tid);
   trace.event("rados operate read submitted");
 

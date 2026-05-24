@@ -1556,6 +1556,16 @@ int librados::IoCtx::operate(const std::string& oid, librados::ObjectReadOperati
   return io_ctx_impl->operate_read(obj, &o->impl->o, pbl, translate_flags(flags));
 }
 
+int librados::IoCtx::operate(const std::string& oid, librados::ObjectReadOperation *o,
+                             bufferlist *pbl, int flags,
+                             const jspan_context *otel_trace)
+{
+  object_t obj(oid);
+  if (unlikely(!o->impl))
+    return -EINVAL;
+  return io_ctx_impl->operate_read(obj, &o->impl->o, pbl, translate_flags(flags), -1, otel_trace);
+}
+
 int librados::IoCtx::aio_operate(const std::string& oid, AioCompletion *c,
 				 librados::ObjectWriteOperation *o)
 {
@@ -1690,6 +1700,17 @@ int librados::IoCtx::aio_operate(const std::string& oid, AioCompletion *c,
   object_t obj(oid);
   return io_ctx_impl->aio_operate_read(obj, &o->impl->o, c->pc,
                translate_flags(flags), pbl, trace_info);
+}
+
+int librados::IoCtx::aio_operate(const std::string& oid, AioCompletion *c,
+                                 ObjectReadOperation *o, int flags,
+                                 bufferlist *pbl,
+                                 const jspan_context *otel_trace)
+{
+  if (unlikely(!o->impl))
+    return -EINVAL;
+  return io_ctx_impl->aio_operate_read(object_t(oid), &o->impl->o, c->pc,
+                                       translate_flags(flags), pbl, nullptr, otel_trace);
 }
 
 void librados::IoCtx::snap_set_read(snap_t seq)

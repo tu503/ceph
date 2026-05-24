@@ -3090,9 +3090,10 @@ public:
     Context *onack, version_t *objver = NULL,
     int *data_offset = NULL,
     uint64_t features = 0,
-    ZTracer::Trace *parent_trace = nullptr) {
+    ZTracer::Trace *parent_trace = nullptr,
+    const jspan_context *otel_trace = nullptr) {
     Op *o = new Op(oid, oloc, std::move(op.ops), get_read_flags(flags) & flags_mask, onack, objver,
-		   data_offset, parent_trace);
+		   data_offset, parent_trace, otel_trace);
     o->priority = op.priority;
     o->snapid = snapid;
     o->outbl = pbl;
