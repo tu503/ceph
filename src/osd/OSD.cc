@@ -64,6 +64,7 @@
 #include "common/numa.h"
 
 #include "os/ObjectStore.h"
+#include "os/bluestore/bluestore_tracer.h"
 #ifdef HAVE_LIBFUSE
 #include "os/FuseStore.h"
 #endif
@@ -3745,6 +3746,7 @@ int OSD::init()
   if (is_stopping())
     return 0;
   tracing::osd::tracer.init(cct, "osd", std::to_string(whoami));
+  tracing::bluestore::tracer.init(cct, "bluestore", std::to_string(whoami));
   tick_timer.init();
   tick_timer_without_osd_lock.init();
   service.recovery_request_timer.init();

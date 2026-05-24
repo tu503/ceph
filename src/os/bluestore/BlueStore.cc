@@ -12454,6 +12454,12 @@ int BlueStore::read(
   bufferlist& bl,
   uint32_t op_flags)
 {
+  auto read_span = tracing::bluestore::tracer.start_trace("bluestore_read");
+  if (read_span->IsRecording()) {
+    read_span->SetAttribute("offset", (int64_t)offset);
+    read_span->SetAttribute("length", (int64_t)length);
+    read_span->SetAttribute("op_flags", (int64_t)op_flags);
+  }
   auto start = mono_clock::now();
   Collection *c = static_cast<Collection *>(c_.get());
   const coll_t &cid = c->get_cid();
