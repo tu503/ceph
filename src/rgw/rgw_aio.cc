@@ -57,8 +57,10 @@ Aio::OpFunc aio_abstract(librados::IoCtx ctx, Op&& op, jspan_context* trace_ctx 
       // use placement new to construct the rados state inside of user_data
       auto s = new (&r.user_data) state(aio, ctx, r);
       if constexpr (read) {
-        (void)trace_ctx; // suppress unused trace_ctx warning. until we will support the read op trace
-        r.result = ctx.aio_operate(r.obj.oid, s->c, &op, &r.data);
+        // pass trace_ctx via IoCtx::aio_operate ObjectReadOperation overload
+        // added by ceph-20.1.1-librados-read-trace.patch so MOSDOp arrives at
+        // the OSD with a parent context — GET traces link rgw -> osd
+        r.result = ctx.aio_operate(r.obj.oid, s->c, &op, 0, &r.data, trace_ctx);
       } else {
         r.result = ctx.aio_operate(r.obj.oid, s->c, &op, 0, trace_ctx);
       }
@@ -130,8 +132,8 @@ Aio::OpFunc aio_abstract(librados::IoCtx ctx, Op&& op, optional_yield y, jspan_c
 
 Aio::OpFunc Aio::librados_op(librados::IoCtx ctx,
                              librados::ObjectReadOperation&& op,
-                             optional_yield y) {
-  return aio_abstract(std::move(ctx), std::move(op), y);
+                             optional_yield y, jspan_context *trace_ctx) {
+  return aio_abstract(std::move(ctx), std::move(op), y, trace_ctx);
 }
 Aio::OpFunc Aio::librados_op(librados::IoCtx ctx,
                              librados::ObjectWriteOperation&& op,

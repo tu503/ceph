@@ -1121,6 +1121,9 @@ class Object {
         /// If the object is multipart, the total number of multipart
         /// parts is assigned to this output parameter.
         std::optional<int> parts_count;
+        /// OTel parent trace context to propagate down to OSD reads.
+        /// Set by RGWGetObj::execute() before calling iterate().
+        jspan_context* trace_ctx{nullptr};
       } params;
 
       virtual ~ReadOp() = default;

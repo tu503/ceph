@@ -97,7 +97,7 @@ class Aio {
 
   static OpFunc librados_op(librados::IoCtx ctx,
                             librados::ObjectReadOperation&& op,
-                            optional_yield y);
+                            optional_yield y, jspan_context *trace_ctx = nullptr);
   static OpFunc librados_op(librados::IoCtx ctx,
                             librados::ObjectWriteOperation&& op,
                             optional_yield y, jspan_context *trace_ctx = nullptr);

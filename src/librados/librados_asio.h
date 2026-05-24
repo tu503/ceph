@@ -220,21 +220,22 @@ auto async_operate(IoExecutor ex, IoCtx& io, const std::string& oid,
   using Signature = typename Op::Signature;
   return boost::asio::async_initiate<CompletionToken, Signature>(
       [] (auto handler, IoExecutor ex, const IoCtx& i, const std::string& oid,
-          ObjectReadOperation read_op, int flags) {
+          ObjectReadOperation read_op, int flags,
+          const jspan_context* trace_ctx) {
         constexpr bool is_read = true;
         auto p = Op::create(ex, is_read, std::move(handler));
         auto& op = p->user_data;
 
         auto& io = const_cast<IoCtx&>(i);
         int ret = io.aio_operate(oid, op.aio_completion.get(), &read_op,
-                                 flags, &op.result);
+                                 flags, &op.result, trace_ctx);
         if (ret < 0) {
           auto ec = boost::system::error_code{-ret, librados::detail::err_category()};
           ceph::async::post(std::move(p), ec, 0, bufferlist{});
         } else {
           p.release(); // release ownership until completion
         }
-      }, token, ex, io, oid, std::move(read_op), flags);
+      }, token, ex, io, oid, std::move(read_op), flags, trace_ctx);
 }
 
 /// Calls IoCtx::aio_operate() and arranges for the AioCompletion to call a

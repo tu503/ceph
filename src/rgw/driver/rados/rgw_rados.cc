@@ -8063,13 +8063,13 @@ int RGWRados::get_obj_iterate_cb(const DoutPrefixProvider *dpp,
   const uint64_t cost = len;
   const uint64_t id = obj_ofs; // use logical object offset for sorting replies
 
-  auto completed = d->aio->get(obj.obj, rgw::Aio::librados_op(obj.ioctx, std::move(op), d->yield), cost, id);
+  auto completed = d->aio->get(obj.obj, rgw::Aio::librados_op(obj.ioctx, std::move(op), d->yield, d->trace_ctx), cost, id);
 
   return d->flush(std::move(completed));
 }
 
 int RGWRados::Object::Read::iterate(const DoutPrefixProvider *dpp, int64_t ofs, int64_t end, RGWGetDataCB *cb,
-                                    optional_yield y)
+                                    optional_yield y, jspan_context *trace_ctx)
 {
   RGWRados *store = source->get_store();
   CephContext *cct = store->ctx();
@@ -8077,7 +8077,7 @@ int RGWRados::Object::Read::iterate(const DoutPrefixProvider *dpp, int64_t ofs, 
   const uint64_t window_size = cct->_conf->rgw_get_obj_window_size;
 
   auto aio = rgw::make_throttle(window_size, y);
-  get_obj_data data(store, cb, &*aio, ofs, y);
+  get_obj_data data(store, cb, &*aio, ofs, y, trace_ctx);
 
   if (state.obj.empty()) {
     state.obj = source->get_obj();

@@ -1934,6 +1934,11 @@ int RGWGetObj::read_user_manifest_part(rgw::sal::Bucket* bucket,
   auto counters = rgw::op_counters::get(s);
   rgw::op_counters::inc(counters, l_rgw_op_get_obj_b, cur_end - cur_ofs);
   filter->fixup_range(cur_ofs, cur_end);
+  jspan_context get_trace_ctx_local{false, false};
+  if (s->trace) {
+    get_trace_ctx_local = s->trace->GetContext();
+    if (get_trace_ctx_local.IsValid()) read_op->params.trace_ctx = &get_trace_ctx_local;
+  }
   op_ret = read_op->iterate(this, cur_ofs, cur_end, filter, s->yield);
   if (op_ret >= 0)
 	  op_ret = filter->flush();
@@ -2668,7 +2673,12 @@ void RGWGetObj::execute(optional_yield y)
       data_span->SetAttribute("end", end_x);
       data_span->SetAttribute("size", end_x - ofs_x + 1);
     }
-    op_ret = read_op->iterate(this, ofs_x, end_x, filter, s->yield);
+    jspan_context get_trace_ctx_local{false, false};
+  if (s->trace) {
+    get_trace_ctx_local = s->trace->GetContext();
+    if (get_trace_ctx_local.IsValid()) read_op->params.trace_ctx = &get_trace_ctx_local;
+  }
+  op_ret = read_op->iterate(this, ofs_x, end_x, filter, s->yield);
 
     if (op_ret >= 0)
       op_ret = filter->flush();
@@ -4283,6 +4293,11 @@ int RGWPutObj::get_data(const off_t fst, const off_t lst, bufferlist& bl)
     return ret;
 
   filter->fixup_range(new_ofs, new_end);
+  jspan_context get_trace_ctx_local{false, false};
+  if (s->trace) {
+    get_trace_ctx_local = s->trace->GetContext();
+    if (get_trace_ctx_local.IsValid()) read_op->params.trace_ctx = &get_trace_ctx_local;
+  }
   ret = read_op->iterate(this, new_ofs, new_end, filter, s->yield);
 
   if (ret >= 0)

@@ -810,7 +810,8 @@ public:
       int prepare(optional_yield y, const DoutPrefixProvider *dpp);
       static int range_to_ofs(uint64_t obj_size, int64_t &ofs, int64_t &end);
       int read(int64_t ofs, int64_t end, bufferlist& bl, optional_yield y, const DoutPrefixProvider *dpp);
-      int iterate(const DoutPrefixProvider *dpp, int64_t ofs, int64_t end, RGWGetDataCB *cb, optional_yield y);
+      int iterate(const DoutPrefixProvider *dpp, int64_t ofs, int64_t end, RGWGetDataCB *cb, optional_yield y,
+                  jspan_context *trace_ctx = nullptr);
       int get_attr(const DoutPrefixProvider *dpp, const char *name, bufferlist& dest, optional_yield y);
     }; // struct RGWRados::Object::Read
 
@@ -1758,10 +1759,13 @@ struct get_obj_data {
   uint64_t offset; // next offset to write to client
   rgw::AioResultList completed; // completed read results, sorted by offset
   optional_yield yield;
+  jspan_context* trace_ctx = nullptr; // parent trace context for OSD read ops
 
   get_obj_data(RGWRados* rgwrados, RGWGetDataCB* cb, rgw::Aio* aio,
-               uint64_t offset, optional_yield yield)
-               : rgwrados(rgwrados), client_cb(cb), aio(aio), offset(offset), yield(yield) {}
+               uint64_t offset, optional_yield yield,
+               jspan_context* trace_ctx = nullptr)
+               : rgwrados(rgwrados), client_cb(cb), aio(aio), offset(offset),
+                 yield(yield), trace_ctx(trace_ctx) {}
   ~get_obj_data() {
     if (rgwrados->get_use_datacache()) {
       const std::lock_guard l(d3n_get_data.d3n_lock);

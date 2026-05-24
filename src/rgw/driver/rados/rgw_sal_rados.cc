@@ -3676,7 +3676,7 @@ int RadosObject::copy_object(const ACLOwner& owner,
 
 int RadosObject::RadosReadOp::iterate(const DoutPrefixProvider* dpp, int64_t ofs, int64_t end, RGWGetDataCB* cb, optional_yield y)
 {
-  return parent_op.iterate(dpp, ofs, end, cb, y);
+  return parent_op.iterate(dpp, ofs, end, cb, y, params.trace_ctx);
 }
 
 int RadosObject::swift_versioning_restore(const ACLOwner& owner, const rgw_user& remote_user, bool& restored,
