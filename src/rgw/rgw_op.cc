@@ -4457,7 +4457,10 @@ void RGWPutObj::execute(optional_yield y)
     op_ret = upload->get_info(this, s->yield, &pdest_placement);
 
     s->trace->SetAttribute(tracing::rgw::UPLOAD_ID, multipart_upload_id);
-    multipart_trace = tracing::rgw::tracer.add_span(name(), upload->get_trace());
+    multipart_trace = tracing::rgw::tracer.add_span("multipart_upload", upload->get_trace());
+    if (multipart_trace) {
+      multipart_trace->SetAttribute(tracing::rgw::UPLOAD_ID, multipart_upload_id);
+    }
     // propagate multipart trace context so RADOS data writes link to
     // the multipart upload trace rather than the ephemeral request trace
     if (multipart_trace && multipart_trace->IsRecording()) {
