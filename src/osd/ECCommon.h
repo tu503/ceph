@@ -90,7 +90,8 @@ struct ECCommon {
       const std::map<hobject_t, std::list<ec_align_t>> &reads,
       bool fast_read,
       uint64_t object_size,
-      GenContextURef<ec_extents_t&&> &&func) = 0;
+      GenContextURef<ec_extents_t&&> &&func,
+      const jspan_context *parent_trace = nullptr) = 0;
 
   struct shard_read_t {
     extent_set extents;
@@ -150,7 +151,8 @@ struct ECCommon {
 
   virtual void objects_read_and_reconstruct_for_rmw(
       std::map<hobject_t, read_request_t> &&to_read,
-      GenContextURef<ec_extents_t&&> &&func) = 0;
+      GenContextURef<ec_extents_t&&> &&func,
+      const jspan_context *parent_trace = nullptr) = 0;
 
   struct ReadOp;
   /**
@@ -259,6 +261,7 @@ struct ECCommon {
     std::unique_ptr<ReadCompleter> on_complete;
 
     ZTracer::Trace trace;
+    jspan_context otel_ctx{jspan_context::GetInvalid()};
 
     std::map<hobject_t, read_request_t> to_read;
     std::map<hobject_t, read_result_t> complete;
@@ -311,11 +314,13 @@ struct ECCommon {
         const std::map<hobject_t, std::list<ec_align_t>> &reads,
         bool fast_read,
         uint64_t object_size,
-        GenContextURef<ec_extents_t&&> &&func);
+        GenContextURef<ec_extents_t&&> &&func,
+        const jspan_context *parent_trace = nullptr);
 
     void objects_read_and_reconstruct_for_rmw(
         std::map<hobject_t, read_request_t> &&to_read,
-        GenContextURef<ECCommon::ec_extents_t&&> &&func);
+        GenContextURef<ECCommon::ec_extents_t&&> &&func,
+        const jspan_context *parent_trace = nullptr);
 
     template <class F, class G>
     void filter_read_op(
@@ -337,7 +342,8 @@ struct ECCommon {
         std::map<hobject_t, read_request_t> &to_read,
         bool do_redundant_reads,
         bool for_recovery,
-        std::unique_ptr<ReadCompleter> on_complete);
+        std::unique_ptr<ReadCompleter> on_complete,
+        const jspan_context *parent_trace = nullptr);
 
     void do_read_op(ReadOp &rop);
 

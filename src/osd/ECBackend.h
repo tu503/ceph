@@ -80,7 +80,8 @@ class ECBackend : public ECCommon {
       pg_shard_t from,
       const ECSubRead &op,
       ECSubReadReply *reply,
-      const ZTracer::Trace &trace
+      const ZTracer::Trace &trace,
+      const jspan_context *parent_trace = nullptr
     );
   void handle_sub_read_n_reply(
     pg_shard_t from,
@@ -159,7 +160,8 @@ class ECBackend : public ECCommon {
       const std::map<hobject_t, std::list<ec_align_t>> &reads,
       bool fast_read,
       uint64_t object_size,
-      GenContextURef<ECCommon::ec_extents_t&&> &&func
+      GenContextURef<ECCommon::ec_extents_t&&> &&func,
+      const jspan_context *parent_trace = nullptr
     ) override;
 
   /**
@@ -171,7 +173,8 @@ class ECBackend : public ECCommon {
    */
   void objects_read_and_reconstruct_for_rmw(
       std::map<hobject_t, read_request_t> &&reads,
-      GenContextURef<ECCommon::ec_extents_t&&> &&func
+      GenContextURef<ECCommon::ec_extents_t&&> &&func,
+      const jspan_context *parent_trace = nullptr
     ) override;
 
   void objects_read_async(
@@ -181,7 +184,8 @@ class ECBackend : public ECCommon {
                                 std::pair<ceph::buffer::list*, Context*>>> &
       to_read,
       Context *on_complete,
-      bool fast_read = false
+      bool fast_read = false,
+      const jspan_context *parent_trace = nullptr
     );
 
  private:

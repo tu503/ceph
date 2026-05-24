@@ -278,7 +278,17 @@ bool ECBackend::_handle_message(
     reply->pgid = get_parent()->primary_spg_t();
     reply->map_epoch = switcher->get_osdmap_epoch();
     reply->min_epoch = get_parent()->get_interval_start_epoch();
-    handle_sub_read(op->op.from, op->op, &(reply->op), _op->pg_trace);
+    {
+      // pull parent OTel context from incoming op_request (set by OSD dispatch
+      // from MOSDECSubOpRead.otel_trace) so local store->read links to RGW GET
+      jspan_context sub_read_parent{false, false};
+      const jspan_context *sub_read_parent_ptr = nullptr;
+      if (_op->osd_parent_span) {
+        sub_read_parent = _op->osd_parent_span->GetContext();
+        if (sub_read_parent.IsValid()) sub_read_parent_ptr = &sub_read_parent;
+      }
+      handle_sub_read(op->op.from, op->op, &(reply->op), _op->pg_trace, sub_read_parent_ptr);
+    }
     reply->trace = _op->pg_trace;
     get_parent()->send_message_osd_cluster(
       reply, _op->get_req()->get_connection());
@@ -482,7 +492,8 @@ void ECBackend::handle_sub_read(
   pg_shard_t from,
   const ECSubRead &op,
   ECSubReadReply *reply,
-  const ZTracer::Trace &trace) {
+  const ZTracer::Trace &trace,
+  const jspan_context *parent_trace) {
   trace.event("handle sub read");
   shard_id_t shard = get_parent()->whoami_shard().shard;
   for (auto &&[hoid, to_read]: op.to_read) {
@@ -496,7 +507,7 @@ void ECBackend::handle_sub_read(
         r = switcher->store->read(
           switcher->ch,
           ghobject_t(hoid, ghobject_t::NO_GEN, shard),
-          offset, len, bl, flags); // Allow EIO return
+          offset, len, bl, flags, parent_trace); // Allow EIO return
       } else {
         int subchunk_size =
           sinfo.get_chunk_size() / ec_impl->get_sub_chunk_count();
@@ -513,7 +524,7 @@ void ECBackend::handle_sub_read(
               ghobject_t(hoid, ghobject_t::NO_GEN, shard),
               offset + m + (k.first) * subchunk_size,
               (k.second) * subchunk_size,
-              bl0, flags);
+              bl0, flags, parent_trace);
             if (r < 0) {
               error = true;
               break;
@@ -1017,7 +1028,8 @@ void ECBackend::objects_read_async(
     const list<pair<ec_align_t,
                     pair<bufferlist*, Context*>>> &to_read,
     Context *on_complete,
-    bool fast_read) {
+    bool fast_read,
+    const jspan_context *parent_trace) {
   map<hobject_t, std::list<ec_align_t>> reads;
 
   uint32_t flags = 0;
@@ -1123,23 +1135,26 @@ void ECBackend::objects_read_async(
       cb(this,
          hoid,
          to_read,
-         on_complete)));
+         on_complete)),
+    parent_trace);
 }
 
 void ECBackend::objects_read_and_reconstruct(
   const map<hobject_t, std::list<ec_align_t>> &reads,
   bool fast_read,
   uint64_t object_size,
-  GenContextURef<ECCommon::ec_extents_t&&> &&func) {
+  GenContextURef<ECCommon::ec_extents_t&&> &&func,
+  const jspan_context *parent_trace) {
   return read_pipeline.objects_read_and_reconstruct(
-    reads, fast_read, object_size, std::move(func));
+    reads, fast_read, object_size, std::move(func), parent_trace);
 }
 
 void ECBackend::objects_read_and_reconstruct_for_rmw(
   map<hobject_t, read_request_t> &&to_read,
-  GenContextURef<ECCommon::ec_extents_t&&> &&func) {
+  GenContextURef<ECCommon::ec_extents_t&&> &&func,
+  const jspan_context *parent_trace) {
   return read_pipeline.objects_read_and_reconstruct_for_rmw(
-    std::move(to_read), std::move(func));
+    std::move(to_read), std::move(func), parent_trace);
 }
 
 void ECBackend::kick_reads() {

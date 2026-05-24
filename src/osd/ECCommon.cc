@@ -434,7 +434,8 @@ void ECCommon::ReadPipeline::start_read_op(
     map<hobject_t, read_request_t> &to_read,
     const bool do_redundant_reads,
     const bool for_recovery,
-    std::unique_ptr<ReadCompleter> on_complete) {
+    std::unique_ptr<ReadCompleter> on_complete,
+    const jspan_context *parent_trace) {
   ceph_tid_t tid = get_parent()->get_tid();
   ceph_assert(!tid_to_read_map.contains(tid));
   auto &op = tid_to_read_map.emplace(
@@ -446,6 +447,9 @@ void ECCommon::ReadPipeline::start_read_op(
       for_recovery,
       std::move(on_complete),
       std::move(to_read))).first->second;
+  if (parent_trace && parent_trace->IsValid()) {
+    op.otel_ctx = *parent_trace;
+  }
   dout(10) << __func__ << ": starting " << op << dendl;
   if (op.op) {
 #ifndef WITH_CRIMSON
@@ -517,6 +521,9 @@ void ECCommon::ReadPipeline::do_read_op(ReadOp &rop) {
     msg->op = read;
     msg->op.from = get_parent()->whoami_shard();
     msg->op.tid = tid;
+    if (rop.otel_ctx.IsValid()) {
+      msg->otel_trace = jspan_context(rop.otel_ctx);
+    }
     if (rop.trace) {
       // initialize a child span for this shard
       msg->trace.init("ec sub read", nullptr, &rop.trace);
@@ -625,7 +632,8 @@ void ECCommon::ReadPipeline::objects_read_and_reconstruct(
     const map<hobject_t, std::list<ec_align_t>> &reads,
     const bool fast_read,
     const uint64_t object_size,
-    GenContextURef<ec_extents_t&&> &&func) {
+    GenContextURef<ec_extents_t&&> &&func,
+    const jspan_context *parent_trace) {
   in_progress_client_reads.emplace_back(reads.size(), std::move(func));
   if (!reads.size()) {
     kick_reads();
@@ -661,12 +669,14 @@ void ECCommon::ReadPipeline::objects_read_and_reconstruct(
     fast_read,
     false,
     std::make_unique<ClientReadCompleter>(
-      *this, &(in_progress_client_reads.back())));
+      *this, &(in_progress_client_reads.back())),
+    parent_trace);
 }
 
 void ECCommon::ReadPipeline::objects_read_and_reconstruct_for_rmw(
     map<hobject_t, read_request_t> &&to_read,
-    GenContextURef<ec_extents_t&&> &&func) {
+    GenContextURef<ec_extents_t&&> &&func,
+    const jspan_context *parent_trace) {
   in_progress_client_reads.emplace_back(to_read.size(), std::move(func));
   if (!to_read.size()) {
     kick_reads();
@@ -693,7 +703,8 @@ void ECCommon::ReadPipeline::objects_read_and_reconstruct_for_rmw(
     CEPH_MSG_PRIO_DEFAULT,
     for_read_op, false, false,
     std::make_unique<ClientReadCompleter>(
-      *this, &(in_progress_client_reads.back())));
+      *this, &(in_progress_client_reads.back())),
+    parent_trace);
 }
 
 

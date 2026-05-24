@@ -20,7 +20,7 @@
 
 class MOSDECSubOpRead : public MOSDFastDispatchOp {
 private:
-  static constexpr int HEAD_VERSION = 3;
+  static constexpr int HEAD_VERSION = 4;
   static constexpr int COMPAT_VERSION = 1;
 
 public:
@@ -57,6 +57,9 @@ public:
     } else {
       min_epoch = map_epoch;
     }
+    if (header.version >= 4) {
+      decode_otel_trace(p);
+    }
   }
 
   void encode_payload(uint64_t features) override {
@@ -66,6 +69,7 @@ public:
     encode(op, payload, features);
     encode(min_epoch, payload);
     encode_trace(payload, features);
+    encode_otel_trace(payload, features);
   }
 
   std::string_view get_type_name() const override { return "MOSDECSubOpRead"; }

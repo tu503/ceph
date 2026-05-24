@@ -306,11 +306,18 @@ void PrimaryLogPG::OpContext::start_async_reads(PrimaryLogPG *pg)
       },
       std::move(ctx_pair));
   }
+  jspan_context oar_parent{false, false};
+  const jspan_context *oar_parent_ptr = nullptr;
+  if (op && op->osd_parent_span) {
+    oar_parent = op->osd_parent_span->GetContext();
+    if (oar_parent.IsValid()) oar_parent_ptr = &oar_parent;
+  }
   pg->pgbackend->objects_read_async(
     obc->obs.oi.soid,
     obc->obs.oi.size,
     in_native,
-    new OnReadComplete(pg, this), pg->get_pool().fast_read);
+    new OnReadComplete(pg, this), pg->get_pool().fast_read,
+    oar_parent_ptr);
 }
 void PrimaryLogPG::OpContext::finish_read(PrimaryLogPG *pg)
 {
@@ -10713,9 +10720,10 @@ int PrimaryLogPG::do_cdc(const object_info_t& oi,
    * Therefore, we should change the current implementation totally to make EC pool compatible. 
    * As s result, we leave this as a future work.
    */
-  // dedup base-read context has no OpRequest in scope; orphan trace for now
+  const jspan_context *dedup_parent_ptr = nullptr;
+  jspan_context dedup_parent = jspan_context{false, false};
   int r = pgbackend->objects_read_sync(
-      oi.soid, 0, oi.size, 0, &bl, nullptr);
+      oi.soid, 0, oi.size, 0, &bl, dedup_parent_ptr);
   if (r < 0) {
     dout(0) << __func__ << " read fail " << oi.soid
             << " len: " << oi.size << " r: " << r << dendl;

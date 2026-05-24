@@ -277,13 +277,16 @@ public:
     const std::list<std::pair<ec_align_t,
                               std::pair<ceph::buffer::list*, Context*>>> &
     to_read,
-    Context *on_complete, bool fast_read = false) override
+    Context *on_complete, bool fast_read = false,
+    const jspan_context *parent_trace = nullptr) override
   {
     if (is_optimized()) {
       optimized.objects_read_async(hoid, object_size, to_read, on_complete,
-                                   fast_read);
+                                   fast_read, parent_trace);
     }
     else {
+      // legacy EC backend (ECBackendL) doesn't accept parent_trace yet
+      (void)parent_trace;
       legacy.objects_read_async(hoid, object_size, to_read, on_complete,
                                 fast_read);
     }

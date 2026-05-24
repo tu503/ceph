@@ -153,7 +153,8 @@ public:
     const std::list<std::pair<ec_align_t,
 	       std::pair<ceph::buffer::list*, Context*> > > &to_read,
                Context *on_complete,
-               bool fast_read = false) override;
+               bool fast_read = false,
+               const jspan_context *parent_trace = nullptr) override;
 
 private:
   // push
