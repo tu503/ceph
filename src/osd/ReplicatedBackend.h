@@ -138,7 +138,8 @@ public:
     uint64_t off,
     uint64_t len,
     uint32_t op_flags,
-    ceph::buffer::list *bl) override;
+    ceph::buffer::list *bl,
+    const jspan_context *parent_trace = nullptr) override;
 
   int objects_readv_sync(
     const hobject_t &hoid,

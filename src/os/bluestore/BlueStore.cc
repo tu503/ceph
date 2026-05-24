@@ -12452,9 +12452,12 @@ int BlueStore::read(
   uint64_t offset,
   size_t length,
   bufferlist& bl,
-  uint32_t op_flags)
+  uint32_t op_flags,
+  const jspan_context *parent_trace)
 {
-  auto read_span = tracing::bluestore::tracer.start_trace("bluestore_read");
+  auto read_span = (parent_trace && parent_trace->IsValid())
+    ? tracing::bluestore::tracer.add_span("bluestore_read", *parent_trace)
+    : tracing::bluestore::tracer.start_trace("bluestore_read");
   if (read_span->IsRecording()) {
     read_span->SetAttribute("offset", (int64_t)offset);
     read_span->SetAttribute("length", (int64_t)length);
@@ -12474,7 +12477,11 @@ int BlueStore::read(
   {
     std::shared_lock l(c->lock);
     auto start1 = mono_clock::now();
-    OnodeRef o = c->get_onode(oid, false);
+    OnodeRef o;
+    {
+      auto onode_span = tracing::bluestore::tracer.add_span("get_onode", read_span);
+      o = c->get_onode(oid, false);
+    }
     log_latency("get_onode@read",
       l_bluestore_read_onode_meta_lat,
       mono_clock::now() - start1,
@@ -12488,7 +12495,18 @@ int BlueStore::read(
     if (offset == length && offset == 0)
       length = o->onode.size;
 
-    r = _do_read(c, o, offset, length, bl, op_flags);
+    {
+      auto do_read_span = tracing::bluestore::tracer.add_span("_do_read", read_span);
+      if (do_read_span->IsRecording()) {
+        do_read_span->SetAttribute("onode_size", (int64_t)o->onode.size);
+        do_read_span->SetAttribute("offset", (int64_t)offset);
+        do_read_span->SetAttribute("length", (int64_t)length);
+      }
+      r = _do_read(c, o, offset, length, bl, op_flags);
+      if (do_read_span->IsRecording()) {
+        do_read_span->SetAttribute("retval", r);
+      }
+    }
     if (r == -EIO) {
       logger->inc(l_bluestore_read_eio);
     }

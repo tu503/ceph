@@ -22,6 +22,7 @@
 #include "include/types.h"
 
 #include "osd/osd_types.h"
+#include "common/tracer.h"
 #include "common/TrackedOp.h"
 #include "common/WorkQueue.h"
 #include "os/Transaction.h"
@@ -487,7 +488,8 @@ public:
      uint64_t offset,
      size_t len,
      ceph::buffer::list& bl,
-     uint32_t op_flags = 0) = 0;
+     uint32_t op_flags = 0,
+     const jspan_context *parent_trace = nullptr) = 0;
 
   /**
    * fiemap -- get extent std::map of data of an object
