@@ -350,6 +350,15 @@ void NVMeofGwMonitorClient::handle_nvmeof_gw_map(ceph::ref_t<MNVMeofGwMap> nmap)
     return;
   }
   // ensure that the gateway state has not vanished
+  // homelab: upstream panics here. With ANA HA on a single host, the mon
+  // can transiently emit a map where one gw's state isn't included (during
+  // pod restart races). Demote to a warning + skip-update so the gateway
+  // survives instead of cascading into a restart loop.
+  if (!got_new_gw_state && got_old_gw_state) {
+    derr << "homelab: gw state vanished from map; mon dropped us. "
+            "Skipping this update; will recover on next beacon." << dendl;
+    return;
+  }
   ceph_assert(got_new_gw_state || !got_old_gw_state);
 
   if (!got_old_gw_state) {
